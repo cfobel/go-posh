@@ -61,20 +61,21 @@
 __version_info__ = (1, 2, 1)
 __version__ = '.'.join(map(str, __version_info__))
 
-import os
-from os.path import splitext, expanduser, join, exists
-import sys
-import getopt
-import re
-import pprint
+from os.path import expanduser, exists, join
 import codecs
-import xml.dom.minidom
 import fnmatch
+import getopt
+import os
+import re
+import sys
+import xml.dom.minidom
 
-#---- exceptions
+# ---- exceptions
+
 
 class GoError(Exception):
     pass
+
 
 class InternalGoError(GoError):
     def __str__(self):
@@ -88,8 +89,8 @@ class InternalGoError(GoError):
 * * * * * * * * * * * * * * * * * * * * * * * * * * * *"""
 
 
+# ---- globals
 
-#---- globals
 
 _envvar = "GO_SHELL_SCRIPT"
 _fileman_env = "FILEMANAGER"
@@ -115,7 +116,7 @@ $env:SHELL = "powershell"
 $env:GO_SHELL_SCRIPT=$env:TEMP+"\__tmp_go.ps1"
 python -m go $args
 if (Test-Path $env:GO_SHELL_SCRIPT) {
-	. $env:GO_SHELL_SCRIPT
+    . $env:GO_SHELL_SCRIPT
 }
 $env:GO_SHELL_SCRIPT = '';
 """,
@@ -132,8 +133,8 @@ function go {
 }
 
 
+# ---- public module interface
 
-#---- public module interface
 
 def getShortcutsFile():
     """Return the path to the shortcuts file."""
@@ -274,19 +275,18 @@ def resolvePath(path):
                 suffix = path
             else:
                 suffix = path
-                target = tag;
+                target = tag
                 if target == '':
-                    target = os.path.sep;
+                    target = os.path.sep
                 elif not os.path.isdir(target):
                     target = '.'
-                #raise
         if suffix:
-            #target = os.path.join(target, os.path.normpath(suffix))
             target = resolveFullPath(target, suffix)
     else:
         raise GoError("no path was given")
 
     return target
+
 
 def resolveFullPath(prefix, suffix):
     # If the path exists, then return it
@@ -312,13 +312,16 @@ def resolveFullPath(prefix, suffix):
         else:
             found = ''
             for dr in os.listdir(path):
-                if fnmatch.fnmatch(dr, comp+'*') and os.path.isdir(os.path.join(path, dr)):
+                if fnmatch.fnmatch(dr, comp+'*') and \
+                        os.path.isdir(os.path.join(path, dr)):
                     if found == '':
                         found = dr
                     else:
-                        raise GoError("Abmiguous path under %s: '%s', '%s'" % (path, found, dr))
+                        raise GoError("Abmiguous path under %s: '%s', '%s'" %
+                                      (path, found, dr))
             if found == '':
-                msg = "Unable to resolve '%s' under directory '%s'" % (comp, path)
+                msg = "Unable to resolve '%s' under directory '%s'" % (comp,
+                                                                       path)
                 if (prefix == '.'):
                     msg = "Shortcut or directory not found: '%s'" % comp
                 raise GoError(msg)
@@ -359,7 +362,6 @@ def generateShellScript(scriptName, path=None):
     "path" is the shortcut path, i.e. <shortcut>[/<subpath>]. If path is
         None (the default) a no-op script is written.
     """
-    shortcuts = getShortcuts()
     if path is None:
         target = None
     else:
@@ -371,7 +373,7 @@ def generateShellScript(scriptName, path=None):
             drive, tail = os.path.splitdrive(target)
             if drive:
                 fbat.write('%s\n' % drive)
-            fbat.write("$env:OLDPWD='%s'\n" % os.getcwd());
+            fbat.write("$env:OLDPWD='%s'\n" % os.getcwd())
             fbat.write('cd "%s"\n' % target)
             fbat.write('$Host.UI.RawUI.WindowTitle = "%s"\n' % target)
         fbat.close()
@@ -383,7 +385,7 @@ def generateShellScript(scriptName, path=None):
             fbat.write('@echo off\n')
             if drive:
                 fbat.write('call %s\n' % drive)
-            fbat.write('set OLDPWD=%s\n' % os.getcwd());
+            fbat.write('set OLDPWD=%s\n' % os.getcwd())
             fbat.write('call cd "%s"\n' % target)
             fbat.write('title "%s"\n' % target)
         fbat.close()
@@ -398,7 +400,7 @@ def generateShellScript(scriptName, path=None):
 def printShortcuts(shortcuts, subheader=None):
     # Organize the shortcuts into groups.
     defaults = [re.escape(s) for s in list(getDefaultShortcuts().keys())]
-    groupMap = { # mapping of group regex to group order and title
+    groupMap = {  # mapping of group regex to group order and title
         "^(%s)$" % '|'.join(defaults): (0, "Default shortcuts"),
         None: (1, "Custom shortcuts"),
     }
@@ -419,8 +421,8 @@ def printShortcuts(shortcuts, subheader=None):
                 grouped[title].append(shortcut)
             else:
                 grouped[title] = [shortcut]
-    for memberList in list(grouped.values()): memberList.sort()
-    groups = []
+    for memberList in list(grouped.values()):
+        memberList.sort()
     titles = list(groupMap.values())
     titles.sort()
 
@@ -432,13 +434,14 @@ def printShortcuts(shortcuts, subheader=None):
     table += ' '*20 + header + '\n'
     table += ' '*20 + '='*len(header) + '\n'
     for order, title in titles:
-        if title not in grouped: continue
+        if title not in grouped:
+            continue
         table += '\n' + title + ":\n"
         for shortcut in grouped[title]:
             dir = shortcuts[shortcut]
-            #TODO: Might want to prettily shorten long names.
-            #if len(dir) > 53:
-            #    dir = dir[:50] + "..."
+            # TODO: Might want to prettily shorten long names.
+            # if len(dir) > 53:
+            #     dir = dir[:50] + "..."
             table += "  %-20s  %s\n" % (shortcut, dir)
 
     # Display the table.
@@ -475,15 +478,13 @@ def _getShell():
         elif "powershell" in shell_path:
             return "powershell"
     elif sys.platform == "win32":
-        #assert "cmd.exe" in os.environ["ComSpec"]
         return "cmd"
     else:
         raise InternalGoError("couldn't determine your shell (SHELL=%r)"
                               % os.environ.get("SHELL"))
 
-def setup():
-    from os.path import normcase, normpath, join
 
+def setup():
     shell = _getShell()
     try:
         driver = _gDriverFromShell[shell]
@@ -500,7 +501,6 @@ def setup():
             os.environ["HOMEDRIVE"] + os.environ["HOMEPATH"])
 
     print("* * *")
-
 
     if shell == "cmd" or shell == "powershell":
         # Need a install candidate dir for "go.bat"/"go.ps1".
@@ -519,11 +519,10 @@ def setup():
                     ncandidates.add(ndir)
                     candidates.append(dir)
             elif nhome and ndir.startswith(nhome) \
-                 and ndir[len(nhome)+1:].count(os.path.sep) < 2:
+                    and ndir[len(nhome)+1:].count(os.path.sep) < 2:
                 if ndir not in ncandidates:
                     ncandidates.add(ndir)
                     candidates.append(dir)
-        #print candidates
 
         print("""\
 It appears that `go' is not setup properly in your environment. Typing
@@ -543,11 +542,11 @@ your PATH:
             print()
             answer = _query_custom_answers(
                 "If you would like this script to create `%s' for you in\n"
-                    "one of these directories, enter the number of that\n"
-                    "directory. Otherwise, enter 'no' to not create `%s'." % (shell_script_name, shell_script_name),
+                "one of these directories, enter the number of that\n"
+                "directory. Otherwise, enter 'no' to not create `%s'." %
+                (shell_script_name, shell_script_name),
                 [str(i+1) for i in range(len(candidates))] + ["&no"],
-                default="no",
-            )
+                default="no")
             if answer == "no":
                 pass
             else:
@@ -665,7 +664,6 @@ def _query_custom_answers(question, answers, default=None):
         leader = question + '\n' + prompt.lstrip()
     leader = leader.lstrip()
 
-    valid_choices = list(answer_from_valid_choice.keys())
     admonishment = "*** Please respond with '%s' or '%s'. ***" \
                    % ("', '".join(clean_answers[:-1]), clean_answers[-1])
 
@@ -678,7 +676,6 @@ def _query_custom_answers(question, answers, default=None):
             return answer_from_valid_choice[choice]
         else:
             sys.stdout.write("\n"+admonishment+"\n\n\n")
-
 
 
 # Recipe: indent (0.2.1)
@@ -712,12 +709,12 @@ def getHomeDir():
     except KeyError:
         try:
             ret = os.environ['USERPROFILE']
-        except:
+        except Exception:
             error('Cannot find home directory.')
     return ret
 
 
-#---- mainline
+# ---- mainline
 
 def main(argv):
     # Must write out a no-op shell script before any error can happen
@@ -726,10 +723,10 @@ def main(argv):
         shellScript = os.environ[_envvar]
     except KeyError:
         if _subsystem == "windows":
-            pass # Don't complain about missing console setup.
+            pass  # Don't complain about missing console setup.
         return setup()
     else:
-        generateShellScript(shellScript) # no-op, overwrite old one
+        generateShellScript(shellScript)  # no-op, overwrite old one
 
     # Parse options
     try:
@@ -804,7 +801,7 @@ def main(argv):
     elif action == "cd":
         if len(args) > 1:
             error("Incorrect number of arguments. argv: %s" % argv)
-            #error("Usage: go [options...] shortcut[/subpath]")
+            # error("Usage: go [options...] shortcut[/subpath]")
             return 1
 
         if len(args) == 1:
@@ -889,11 +886,13 @@ def main(argv):
             error("Error resolving '%s': %s" % (path, ex))
             return 1
 
-        if sys.platform.startswith("win") and list(os.environ.keys()).count(_fileman_env) == 0:
+        if sys.platform.startswith("win") and \
+                list(os.environ.keys()).count(_fileman_env) == 0:
             try:
                 import win32api
                 try:
-                    explorerExe, offset = win32api.SearchPath(None, "explorer.exe")
+                    explorerExe, offset = win32api.SearchPath(None,
+                                                              "explorer.exe")
                 except win32api.error as ex:
                     error("Could not find 'explorer.exe': %s" % ex)
                     return 1
@@ -906,7 +905,8 @@ def main(argv):
             os.spawnv(os.P_NOWAIT, explorerExe, [explorerExe, '/E,"%s"' % dir])
         else:
             try:
-                if sys.platform.startswith('darwin') and list(os.environ.keys()).count(_fileman_env) == 0:
+                if sys.platform.startswith('darwin') and \
+                        list(os.environ.keys()).count(_fileman_env) == 0:
                     fileMan = '/usr/bin/open'
                 else:
                     fileMan = os.environ[_fileman_env]
@@ -918,11 +918,13 @@ def main(argv):
                 os.spawnv(os.P_NOWAIT, fileMan, [fileMan, dir])
 
             except KeyError:
-                error("No file manager found.  Set the %s environment variable to set one." % _fileman_env)
+                error("No file manager found.  Set the %s environment variable"
+                      " to set one." % _fileman_env)
 
     else:
         error("Internal Error: unknown action: '%s'\n")
         return 1
+
 
 def _findOnPath(prog):
     """Find the file prog on the system PATH.
@@ -953,7 +955,7 @@ if __name__ == "__main__":
     if _subsystem == "windows":
         try:
             retval = main(sys.argv)
-        except:
+        except Exception:
             import traceback
             tb = ''.join(traceback.format_exception(*sys.exc_info()))
             error(tb)
